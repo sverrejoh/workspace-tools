@@ -1,0 +1,8 @@
+{
+  "type": "minor",
+  "comment": "Make getDefaultRemote properly handle more combinations of URL formats",
+  "packageName": "workspace-tools",
+  "email": "elcraig@microsoft.com",
+  "dependentChangeType": "patch",
+  "date": "2021-03-02T04:28:58.193Z"
+}

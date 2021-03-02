@@ -8,12 +8,8 @@ export interface PackageInfo {
   private?: boolean;
   group?: string;
   scripts?: { [dep: string]: string };
-  [key: string]:
-    | string
-    | boolean
-    | string[]
-    | { [dep: string]: string }
-    | undefined;
+  repository?: string | { type: string; url: string; directory?: string; };
+  [key: string]: any;
 }
 
 export interface PackageInfos {

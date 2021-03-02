@@ -1,79 +1,9 @@
-import { spawnSync } from "child_process";
-import fs from "fs";
-import path from "path";
-import { findGitRoot } from "./paths";
-import gitUrlParse from "git-url-parse";
+//
+// Assorted other git utilities
+// (could be split into separate files later if desired)
+//
 
-/**
- * A maxBuffer override globally for all git operations
- * Bumps up the default to 500MB as opposed to the 1MB
- * Override this value with "GIT_MAX_BUFFER" environment variable
- */
-const MaxBufferOption = process.env.GIT_MAX_BUFFER ? parseInt(process.env.GIT_MAX_BUFFER) : 500 * 1024 * 1024;
-
-// Observes the git operations called from git() or gitFailFast()
-type ProcessOutput = {
-  stderr: string;
-  stdout: string;
-  success: boolean;
-};
-type GitObserver = (args: string[], output: ProcessOutput) => void;
-const observers: GitObserver[] = [];
-let observing: boolean;
-
-/**
- * Adds an observer for the git operations, e.g. for testing
- * @param observer
- */
-export function addGitObserver(observer: GitObserver) {
-  observers.push(observer);
-}
-
-/**
- * Runs git command - use this for read only commands
- */
-export function git(args: string[], options?: { cwd: string; maxBuffer?: number }): ProcessOutput {
-  const results = spawnSync("git", args, { maxBuffer: MaxBufferOption, ...options });
-  let output: ProcessOutput;
-
-  if (results.status === 0) {
-    output = {
-      stderr: results.stderr.toString().trimRight(),
-      stdout: results.stdout.toString().trimRight(),
-      success: true,
-    };
-  } else {
-    output = {
-      stderr: results.stderr.toString().trimRight(),
-      stdout: results.stdout.toString().trimRight(),
-      success: false,
-    };
-  }
-
-  // notify observers, flipping the observing bit to prevent infinite loops
-  if (!observing) {
-    observing = true;
-    for (const observer of observers) {
-      observer(args, output);
-    }
-    observing = false;
-  }
-
-  return output;
-}
-
-/**
- * Runs git command - use this for commands that makes changes to the file system
- */
-export function gitFailFast(args: string[], options?: { cwd: string; maxBuffer?: number }) {
-  const gitResult = git(args, options);
-  if (!gitResult.success) {
-    console.error(`CRITICAL ERROR: running git command: git ${args.join(" ")}!`);
-    console.error(gitResult.stdout && gitResult.stdout.toString().trimRight());
-    console.error(gitResult.stderr && gitResult.stderr.toString().trimRight());
-    process.exit(1);
-  }
-}
+import { git, GitProcessOutput } from "./git";
 
 export function getUntrackedChanges(cwd: string) {
   try {
@@ -390,66 +320,6 @@ export function parseRemoteBranch(branch: string) {
   };
 }
 
-function normalizeRepoUrl(repositoryUrl: string) {
-  try {
-    const parsed = gitUrlParse(repositoryUrl);
-    return parsed
-      .toString("https")
-      .replace(/\.git$/, "")
-      .toLowerCase();
-  } catch (e) {
-    return "";
-  }
-}
-
-export function getDefaultRemoteBranch(branch: string = "master", cwd: string) {
-  const defaultRemote = getDefaultRemote(cwd);
-  return `${defaultRemote}/${branch}`;
-}
-
-export function getDefaultRemote(cwd: string) {
-  let packageJson: any;
-
-  try {
-    packageJson = JSON.parse(fs.readFileSync(path.join(findGitRoot(cwd)!, "package.json")).toString());
-  } catch (e) {
-    console.log("failed to read package.json");
-    throw new Error("invalid package.json detected");
-  }
-
-  const { repository } = packageJson;
-
-  let repositoryUrl = "";
-
-  if (typeof repository === "string") {
-    repositoryUrl = repository;
-  } else if (repository && repository.url) {
-    repositoryUrl = repository.url;
-  }
-
-  const normalizedUrl = normalizeRepoUrl(repositoryUrl);
-  const remotesResult = git(["remote", "-v"], { cwd });
-
-  if (remotesResult.success) {
-    const allRemotes: { [url: string]: string } = {};
-    remotesResult.stdout.split("\n").forEach((line) => {
-      const parts = line.split(/\s+/);
-      allRemotes[normalizeRepoUrl(parts[1])] = parts[0];
-    });
-
-    if (Object.keys(allRemotes).length > 0) {
-      const remote = allRemotes[normalizedUrl];
-
-      if (remote) {
-        return remote;
-      }
-    }
-  }
-
-  console.log(`Defaults to "origin"`);
-  return "origin";
-}
-
 export function listAllTrackedFiles(patterns: string[], cwd: string) {
   if (patterns) {
     const results = git(["ls-files", ...patterns], { cwd });
@@ -461,7 +331,7 @@ export function listAllTrackedFiles(patterns: string[], cwd: string) {
   return [];
 }
 
-function processGitOutput(output: ProcessOutput) {
+function processGitOutput(output: GitProcessOutput) {
   if (!output.success) {
     return [];
   }
