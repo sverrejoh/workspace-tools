@@ -6,8 +6,13 @@ import {
   getUnstagedChanges,
   getUntrackedChanges,
 } from "../git";
-
 import { getPackagesByFiles } from "./getPackagesByFiles";
+
+const tap = <T extends unknown>(a: T, fn: (a: T) => void): T => {
+  fn(a);
+  return a;
+};
+
 /**
  * Finds all packages that had been changed between two refs in the repo under cwd
  *
@@ -31,12 +36,16 @@ export function getChangedPackagesBetweenRefs(
   toRef: string = "",
   ignoreGlobs: string[] = []
 ) {
+
+  console.log("getChangedPackagesBetweenRefs");  
   let changes = [
     ...new Set([
-      ...(getUntrackedChanges(cwd) || []),
-      ...(getUnstagedChanges(cwd) || []),
-      ...(getChangesBetweenRefs(fromRef, toRef, [], "", cwd) || []),
-      ...(getStagedChanges(cwd) || []),
+      ...tap(getUntrackedChanges(cwd) || [], (it: unknown) => console.log("getUntrackedChanges", cwd, it)),
+      ...tap(getUnstagedChanges(cwd) || [], (it: unknown) => console.log("getUnstagedChanges", cwd, it)),
+      ...tap(getChangesBetweenRefs(fromRef, toRef, [], "", cwd) || [], (it: unknown) =>
+        console.log("getChangesBetweenRefs", cwd, fromRef, toRef, it)
+      ),
+      ...tap(getStagedChanges(cwd) || [], (it: unknown) => console.log("getStagedChanges", it)),
     ]),
   ];
 
@@ -62,12 +71,14 @@ export function getChangedPackagesBetweenRefs(
  */
 export function getChangedPackages(cwd: string, target: string | undefined, ignoreGlobs: string[] = []) {
   const targetBranch = target || getDefaultRemoteBranch(undefined, cwd);
+
+  console.log("getChangedPackages");
   let changes = [
     ...new Set([
-      ...(getUntrackedChanges(cwd) || []),
-      ...(getUnstagedChanges(cwd) || []),
-      ...(getBranchChanges(targetBranch, cwd) || []),
-      ...(getStagedChanges(cwd) || []),
+      ...tap(getUntrackedChanges(cwd) || [], (it: unknown) => console.log("getUntrackedChanges", cwd, it)),
+      ...tap(getUnstagedChanges(cwd) || [], (it: unknown) => console.log("getUnstagedChanges", cwd, it)),
+      ...tap(getBranchChanges(targetBranch, cwd) || [], (it: unknown) => console.log("getBranchChanges", targetBranch, cwd, it)),
+      ...tap(getStagedChanges(cwd) || [], (it: unknown) => console.log("getStagedChanges", it))
     ]),
   ];
 
